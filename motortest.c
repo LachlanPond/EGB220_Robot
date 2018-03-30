@@ -2,7 +2,12 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
+void setupADC();
+
 int main() {
+
+	setupADC();
+
 	// Make pin OC0A/B7 an output
 	DDRB |= (1 << 7);
 	DDRB |= (1 << 5);
@@ -35,14 +40,27 @@ int main() {
 	int base_speed = 60;
 	double kp = 0;
 	double kd = 0;
+	uint8_t sensor_array[8];
 
 	while(1) {
-		OCR0A = 51;
-		OCR1A = 13107;
-		_delay_ms(3000);
-		OCR0A = 255;
-		OCR1A = 65535;
-		_delay_ms(3000);
+		int i = 0;
+		for (i; i < 8; i++) {
+			sensor_array[i] = readADC(i);
+		}
+
+		if (sensor_array[0] < 128) {
+			PORTB |= (1 << 7);
+		}
+		else {
+			PORTB &= ~(1 << 7);
+		}
+
+		// OCR0A = 51;
+		// OCR1A = 13107;
+		// _delay_ms(3000);
+		// OCR0A = 255;
+		// OCR1A = 65535;
+		// _delay_ms(3000);
 	}
 }
 
@@ -68,7 +86,7 @@ void setLeftMotorSpeed(int percentage) {
 	OCR0A = 255 * (percentage * 0.01); 
 }
 
-void PIDcontrol(double *kp, double *kd, int *last_error) {
+void PIDcontrol(double *kp, double *kd, int *last_error, int base_speed) {
 	int target_pos = 0;
 	// Get the current position from 0
 	int current_pos = getCurrentPosition();
@@ -77,7 +95,7 @@ void PIDcontrol(double *kp, double *kd, int *last_error) {
 	int error = target_pos - current_pos;
 
 	// Calculate Derivative component
-	int derivative = error - last_error;
+	int derivative = error - *last_error;
 
 	// Calculate Control Variable
 	int control_variable = (*kp * error) + (*kd * derivative);
@@ -94,4 +112,44 @@ int getCurrentPosition() {
 
 void setBaseSpeed(int *base_speed, int speed) {
 	*base_speed = speed;
+}
+
+void setupADC() {
+	// Set up ADC (internal ref, left-adjusted, 128 prescaler)
+	// ADC0 active by default
+	ADMUX |= (1<<REFS1)|(1<<REFS0)|(1<<ADLAR);
+	ADCSRA |= (1<<ADEN)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0);
+}
+
+int readADC(int input_channel) {
+	switch(input_channel) { // Set which ADC channel to use
+		case 0:
+			ADMUX = 0b11100100; //ADC4
+			break;
+		case 1:
+			ADMUX = 0b11100101; //ADC5
+			break;
+		case 2:
+			ADMUX = 0b11100110; //ADC6
+			break;
+		case 3:
+			ADMUX = 0b11100111; //ADC7
+			break;
+		case 4:
+			ADMUX = 0b11110011; //ADC11
+			break;
+		case 5:
+			ADMUX = 0b11110010; //ADC10
+			break;
+		case 6:
+			ADMUX = 0b11110001; //ADC9
+			break;
+		case 7:
+			ADMUX = 0b11110000; //ADC8
+	}
+
+	ADCSRA |= (1 << ADSC); // Manually start conversion
+
+	while(ADCSRA & (1 << ADSC)); // Wait until conversion is complete
+	return (ADCH); // Return ADC output
 }
