@@ -3,13 +3,18 @@
 #include <util/delay.h>
 
 void setupADC();
+uint8_t readADC(int);
+void setRightMotorSpeed(int);
+void setLeftMotorSpeed(int);
+void PIDcontrol(double *kp, double *kd, int *last_error, int);
+void setBaseSpeed(int *base_speed, int);
+int getCurrentPosition();
 
 int main() {
 
 	setupADC();
 
 	// Make pin OC0A/B7 an output
-	DDRB |= (1 << 7);
 	DDRB |= (1 << 5);
 
 	// Configure TCCR0A (Motor 2)
@@ -44,15 +49,15 @@ int main() {
 
 	while(1) {
 		int i = 0;
-		for (i; i < 8; i++) {
-			sensor_array[i] = readADC(i);
-		}
-
-		if (sensor_array[0] < 128) {
-			PORTB |= (1 << 7);
+		// for (i; i < 8; i++) {
+		// 	sensor_array[i] = readADC(i);
+		// }
+		sensor_array[0] = readADC(0);
+		if (sensor_array[0] > 128) {
+			PORTB |= (1 << 5);
 		}
 		else {
-			PORTB &= ~(1 << 7);
+			PORTB &= ~(1 << 5);
 		}
 
 		// OCR0A = 51;
@@ -119,9 +124,11 @@ void setupADC() {
 	// ADC0 active by default
 	ADMUX |= (1<<REFS1)|(1<<REFS0)|(1<<ADLAR);
 	ADCSRA |= (1<<ADEN)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0);
+
+	ADCSRA |= (1 << ADSC);
 }
 
-int readADC(int input_channel) {
+uint8_t readADC(int input_channel) {
 	switch(input_channel) { // Set which ADC channel to use
 		case 0:
 			ADMUX = 0b11100100; //ADC4
