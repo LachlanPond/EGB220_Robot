@@ -2,12 +2,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-int integral = 0;
-int base_speed = 60;
-double kp = 0;
-double ki = 0;
-double kd = 0;
-
 int main() {
 	// Make pin OC0A/B7 an output
 	DDRB |= (1 << 7);
@@ -36,6 +30,12 @@ int main() {
 	// Set compare value
 	// OCR0A = 102;
 
+	// Setup some initial variables
+	int integral = 0;
+	int base_speed = 60;
+	double kp = 0;
+	double kd = 0;
+
 	while(1) {
 		OCR0A = 51;
 		OCR1A = 13107;
@@ -44,29 +44,6 @@ int main() {
 		OCR1A = 65535;
 		_delay_ms(3000);
 	}
-}
-
-void PIDcontrol() {
-	int target_pos = 0;
-	// Get the current position from 0
-	int current_pos = getCurrentPosition();
-
-	// Calculate error
-	int error = target_pos - current_pos;
-
-	// Calculate Integral component
-	integral = integral + error;
-
-	// Calculate Derivative component
-	int derivative = error - last_error;
-
-	// Calculate Control Variable
-	int control_variable = (kp * error) + (ki * integral) + (kd * derivative);
-
-	setLeftMotorSpeed(base_speed + control_variable);
-	setRightMotorSpeed(base_speed + control_variable);
-
-	last_error = error;
 }
 
 // Set right motor speed using a percentage
@@ -91,10 +68,30 @@ void setLeftMotorSpeed(int percentage) {
 	OCR0A = 255 * (percentage * 0.01); 
 }
 
+void PIDcontrol(double *kp, double *kd, int *last_error) {
+	int target_pos = 0;
+	// Get the current position from 0
+	int current_pos = getCurrentPosition();
+
+	// Calculate error
+	int error = target_pos - current_pos;
+
+	// Calculate Derivative component
+	int derivative = error - last_error;
+
+	// Calculate Control Variable
+	int control_variable = (*kp * error) + (*kd * derivative);
+
+	setLeftMotorSpeed(base_speed + control_variable);
+	setRightMotorSpeed(base_speed + control_variable);
+
+	*last_error = error;
+}
+
 int getCurrentPosition() {
 	// Read IR sensors and work out how far from 0 the robot is
 }
 
-void setBaseSpeed(int speed) {
-	base_speed = speed;
+void setBaseSpeed(int *base_speed, int speed) {
+	*base_speed = speed;
 }
