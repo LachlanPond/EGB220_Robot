@@ -3,9 +3,9 @@
 #include <util/delay.h>
 
 void setupADC();
+void setupMotors();
 uint8_t readADC(int);
-void setRightMotorSpeed(int);
-void setLeftMotorSpeed(int);
+void setMotorSpeeds(double, double);
 void PIDcontrol(double *kp, double *kd, int *last_error, int);
 void setBaseSpeed(int *base_speed, int);
 int getCurrentPosition();
@@ -13,25 +13,10 @@ int getCurrentPosition();
 int main() {
 
 	setupADC();
+	setupMotors();
 
-	// Make pin OC0A/B7 an output
-	DDRB |= (1 << 5);
-
-	// Configure TCCR0A (Motor 2)
-	// -- Clear OC0A on Compare Match, set OC0A at TOP
-	// -- Clear OC0B on Compare Match, set OC0B at TOP
-	// -- Fast PWM
-	TCCR0A |= (1 << 7) | (1 << 5) | (1 << 1) | 1;
-
-	// Configure TCCR0A (Motor 1)
-	// -- Clear OC1A on Compare Match, set OC1A at TOP
-	// -- Clear OC1B on Compare Match, set OC1B at TOP
-	// -- Fast PWM 8-bit
-	TCCR1A |= (1 << 7) | (1 << 5) | 1;
-
-	// 256 (From prescalar)
-	TCCR0B |= (1 << 2);
-	TCCR1B |= (1 << 2) | (1 << 3);
+	// Set LED2 and LED3 as output
+	DDRB |= (1 << 1) | (1 << 2);
 
 	// Lets make the Duty Cycle 40%
 	// The full cycle represents a count to 255, therefore:
@@ -45,50 +30,28 @@ int main() {
 	int base_speed = 60;
 	double kp = 0;
 	double kd = 0;
-	uint8_t sensor_array[8];
+	int sensor_reading;
 
 	while(1) {
-		int i = 0;
-		// for (i; i < 8; i++) {
-		// 	sensor_array[i] = readADC(i);
-		// }
-		sensor_array[0] = readADC(0);
-		if (sensor_array[0] > 128) {
-			PORTB |= (1 << 5);
+		sensor_reading = readADC(0); // ADC4
+		if (sensor_reading > 128) {
+			PORTB = (1 << 1) | (0 << 2);
+			setMotorSpeeds(60, 80);
 		}
 		else {
-			PORTB &= ~(1 << 5);
+			PORTB = (0 << 1) | (1 << 2);
+			setMotorSpeeds(80, 60);
 		}
-
-		// OCR0A = 51;
-		// OCR1A = 13107;
-		// _delay_ms(3000);
-		// OCR0A = 255;
-		// OCR1A = 65535;
-		// _delay_ms(3000);
 	}
 }
 
-// Set right motor speed using a percentage
-void setRightMotorSpeed(int percentage) {
-	if (percentage > 100) {
-		percentage = 100;
-	}
-	else if (percentage < 20) {
-		percentage = 20;
-	}
-	OCR1A = 65535 * (percentage * 0.01); 
-}
+// Set the speed of each motor using percentages
+void setMotorSpeeds(double left, double right) {
+	if (left < 20) { left = 20; }
+	if (right < 20) { right = 20; }
 
-// Set left motor speed using a percentage
-void setLeftMotorSpeed(int percentage) {
-	if (percentage > 100) {
-		percentage = 100;
-	}
-	else if (percentage < 20) {
-		percentage = 20;
-	}
-	OCR0A = 255 * (percentage * 0.01); 
+	OCR0A = 255 * (left * 0.01); 
+	OCR1A = 65535 * (right * 0.01);
 }
 
 void PIDcontrol(double *kp, double *kd, int *last_error, int base_speed) {
@@ -105,8 +68,7 @@ void PIDcontrol(double *kp, double *kd, int *last_error, int base_speed) {
 	// Calculate Control Variable
 	int control_variable = (*kp * error) + (*kd * derivative);
 
-	setLeftMotorSpeed(base_speed + control_variable);
-	setRightMotorSpeed(base_speed + control_variable);
+	setMotorSpeeds(base_speed + control_variable, base_speed + control_variable);
 
 	*last_error = error;
 }
@@ -159,4 +121,25 @@ uint8_t readADC(int input_channel) {
 
 	while(ADCSRA & (1 << ADSC)); // Wait until conversion is complete
 	return (ADCH); // Return ADC output
+}
+
+void setupMotors() {
+	// Set OC0A/B7 and OC1A/B5 as outputs
+	DDRB |= (1 << 7) | (1 << 5);
+
+	// Configure TCCR0A (Motor 2)
+	// -- Clear OC0A on Compare Match, set OC0A at TOP
+	// -- Clear OC0B on Compare Match, set OC0B at TOP
+	// -- Fast PWM
+	TCCR0A |= (1 << 7) | (1 << 5) | (1 << 1) | 1;
+
+	// Configure TCCR0A (Motor 1)
+	// -- Clear OC1A on Compare Match, set OC1A at TOP
+	// -- Clear OC1B on Compare Match, set OC1B at TOP
+	// -- Fast PWM 8-bit
+	TCCR1A |= (1 << 7) | (1 << 5) | 1;
+
+	// 256 (From prescalar)
+	TCCR0B |= (1 << 2);
+	TCCR1B |= (1 << 2) | (1 << 3);
 }
