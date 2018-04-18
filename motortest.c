@@ -6,7 +6,7 @@ void setupADC();
 void setupMotors();
 uint8_t readADC(int);
 void setMotorSpeeds(double, double);
-void PIDcontrol(double *kp, double *kd, int *last_error, int);
+void PIDcontrol(double kp, double kd, int *last_error, int);
 void setBaseSpeed(int *base_speed, int);
 int getCurrentPosition();
 
@@ -26,38 +26,24 @@ int main() {
 	// OCR0A = 102;
 
 	// Setup some initial variables
-	int integral = 0;
-	int base_speed = 60;
-	double kp = 0;
+	int base_speed = 30;
+	double kp = 1;
 	double kd = 0;
-	int sensor_array[8];
+	int last_error = 0;
 
 	while(1) {
-		int i = 0;
-		for (i; i < 8; i++) {
-			sensor_array[i] = readADC(i);
-		}
-		if (sensor_array[5] > 160) {
-			PORTB = (1 << 1) | (0 << 2);
-			setMotorSpeeds(60, 80);
-		}
-		else {
-			PORTB = (0 << 1) | (1 << 2);
-			setMotorSpeeds(80, 60);
-		}
+		getCurrentPosition();
+		//PIDcontrol(kp, kd, &last_error, base_speed);
 	}
 }
 
 // Set the speed of each motor using percentages
 void setMotorSpeeds(double left, double right) {
-	if (left < 20) { left = 20; }
-	if (right < 20) { right = 20; }
-
 	OCR0A = 255 * (left * 0.01); 
-	OCR1A = 65535 * (right * 0.01);
+	OCR1A = 255 * (right * 0.01);
 }
 
-void PIDcontrol(double *kp, double *kd, int *last_error, int base_speed) {
+void PIDcontrol(double kp, double kd, int *last_error, int base_speed) {
 	int target_pos = 0;
 	// Get the current position from 0
 	int current_pos = getCurrentPosition();
@@ -69,15 +55,58 @@ void PIDcontrol(double *kp, double *kd, int *last_error, int base_speed) {
 	int derivative = error - *last_error;
 
 	// Calculate Control Variable
-	int control_variable = (*kp * error) + (*kd * derivative);
+	int control_variable = (kp * error) + (kd * derivative);
 
-	setMotorSpeeds(base_speed + control_variable, base_speed + control_variable);
+	setMotorSpeeds(base_speed - control_variable, base_speed + control_variable);
 
 	*last_error = error;
 }
 
 int getCurrentPosition() {
 	// Read IR sensors and work out how far from 0 the robot is
+	int sensor_data[8];
+	int sensor_boolean[8];
+	int pos = 0;
+
+	int i = 0;
+	for (i; i < 8; i++) {
+		sensor_data[i] = readADC(i);
+		if (sensor_data[i] > 160) {
+			sensor_boolean[i] = 1;
+		} else {
+			sensor_boolean[i] = 0;
+		}
+	}
+
+	if (sensor_boolean[0] == 1) {
+		pos = pos + 1;
+	}
+	if (sensor_boolean[1] == 1) {
+		pos = pos + 1;
+	}
+	if (sensor_boolean[2] == 1) {
+		pos = pos + 1;
+	}
+	if (sensor_boolean[3] == 1) {
+		pos = pos + 1;
+	}
+
+	if (sensor_boolean[4] == 1) {
+		pos = pos - 1;
+	}
+	if (sensor_boolean[5] == 1) {
+		pos = pos - 1;
+	}
+	if (sensor_boolean[6] == 1) {
+		pos = pos - 1;
+	}
+	if (sensor_boolean[7] == 1) {
+		pos = pos - 1;
+	}
+
+	setMotorSpeeds(30 + pos, 30 - pos);
+
+	return pos;
 }
 
 void setBaseSpeed(int *base_speed, int speed) {
