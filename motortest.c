@@ -30,11 +30,14 @@ int main() {
 	int base_speed = 60;
 	double kp = 0;
 	double kd = 0;
-	int sensor_reading;
+	int sensor_array[8];
 
 	while(1) {
-		sensor_reading = readADC(0); // ADC4
-		if (sensor_reading > 128) {
+		int i = 0;
+		for (i; i < 8; i++) {
+			sensor_array[i] = readADC(i);
+		}
+		if (sensor_array[5] > 160) {
 			PORTB = (1 << 1) | (0 << 2);
 			setMotorSpeeds(60, 80);
 		}
@@ -94,27 +97,35 @@ uint8_t readADC(int input_channel) {
 	switch(input_channel) { // Set which ADC channel to use
 		case 0:
 			ADMUX = 0b11100100; //ADC4
+			ADCSRB = 0b00000000;
 			break;
 		case 1:
 			ADMUX = 0b11100101; //ADC5
+			ADCSRB = 0b00000000;
 			break;
 		case 2:
 			ADMUX = 0b11100110; //ADC6
+			ADCSRB = 0b00000000;
 			break;
 		case 3:
 			ADMUX = 0b11100111; //ADC7
+			ADCSRB = 0b00000000;
 			break;
 		case 4:
-			ADMUX = 0b11110011; //ADC11
+			ADMUX = 0b11100011; //ADC11
+			ADCSRB = 0b00100000;
 			break;
 		case 5:
-			ADMUX = 0b11110010; //ADC10
+			ADMUX = 0b11100010; //ADC10
+			ADCSRB = 0b00100000;
 			break;
 		case 6:
-			ADMUX = 0b11110001; //ADC9
+			ADMUX = 0b11100001; //ADC9
+			ADCSRB = 0b00100000;
 			break;
 		case 7:
-			ADMUX = 0b11110000; //ADC8
+			ADMUX = 0b11100000; //ADC8
+			ADCSRB = 0b00100000;
 	}
 
 	ADCSRA |= (1 << ADSC); // Manually start conversion
